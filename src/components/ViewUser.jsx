@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useForceUpdate } from "react";
+import React, { useEffect, useState } from "react";
 import { Button, Modal } from "react-bootstrap";
-import { updateUserData } from "../utils/userService";
-const ViewUser = ({ users, handleDelete }) => {
+import { deleteUser, getUser, updateUserData } from "../utils/userService";
+const ViewUser = () => {
   const [editUserData, setEditUserData] = useState({
     id: "",
     name: "",
@@ -10,6 +10,24 @@ const ViewUser = ({ users, handleDelete }) => {
   });
 
   const [isOpen, setIsOpen] = useState(false);
+  const [users, setUsers] = useState([]);
+
+  useEffect(() => {
+    getUserData();
+  }, [users]);
+
+  const getUserData = async () => {
+    await getUser().then((response) => {
+      const fetchedResult = [];
+      for (let key in response.data) {
+        fetchedResult.unshift({
+          ...response.data[key],
+          id: key,
+        });
+      }
+      setUsers(fetchedResult);
+    });
+  };
   const openModal = (currentUser) => {
     setIsOpen(true);
     setEditUserData(currentUser);
@@ -20,7 +38,9 @@ const ViewUser = ({ users, handleDelete }) => {
   };
 
   const handleUpdate = async () => {
-    await updateUserData(editUserData.id, editUserData);
+   await updateUserData(editUserData.id, editUserData).then((response) => {
+        setUsers(response.data);
+      });
   };
 
   const handleSubmit = (e) => {
@@ -33,6 +53,14 @@ const ViewUser = ({ users, handleDelete }) => {
     const data = { ...editUserData };
     data[input.name] = input.value;
     setEditUserData(data);
+  };
+
+  const handleDelete = async (userId) => {
+    await deleteUser(userId);
+    let newUser = users.filter((item) => {
+      return item.id !== userId;
+    });
+    setUsers(newUser);
   };
 
   return (
@@ -48,7 +76,7 @@ const ViewUser = ({ users, handleDelete }) => {
             </tr>
           </thead>
           <tbody>
-            {users && users.map((item) => {
+            {users.length > 0 && users.map((item) => {
               return (
                 <tr key={item.id}>
                   <td>{item.name}</td>

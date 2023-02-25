@@ -1,37 +1,38 @@
-import React, { useEffect, useState } from "react";
+import React, {  useState } from "react";
 import { Button, Modal } from "react-bootstrap";
-import { deleteUser, getUser, setUser } from "../utils/userService";
+import { setUser } from "../utils/userService";
+import Joi, { schema } from "joi-browser";
 import ViewUser from "./ViewUser";
 const CreateUser = () => {
   const [userData, setUserData] = useState({
-    id: "",
     name: "",
     email: "",
     phone: "",
   });
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [users, setUsers] = useState([]);
+  schema = {
+    name: Joi.string().required(),
+    email: Joi.string().required(),
+    phone : Joi.number().required()
+  };
 
-  useEffect(() => {
-    getUserData();
-  }, []);
+  const [isOpen, setIsOpen] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const validate = () => {
+    const options = { abortEarly: false };
+    const { error } = Joi.validate(userData, schema, options);
+
+    if (!error) return null;
+
+    const errors = {};
+
+    for (let item of error.details) errors[item.path[0]] = item.message;
+    return errors;
+  };
 
   const doSubmit = async () => {
     await setUser(userData);
-  };
-
-  const getUserData = async () => {
-    await getUser().then((response) => {
-      const fetchedResult = [];
-      for (let key in response.data) {
-        fetchedResult.unshift({
-          ...response.data[key],
-          id: key,
-        });
-      }
-      setUsers(fetchedResult);
-    });
   };
 
   const openModal = () => {
@@ -44,23 +45,33 @@ const CreateUser = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const errors = validate();
+    setErrors({ errors: errors || {} })
+    if (errors) return;
     doSubmit();
     setIsOpen(false);
   };
 
+  const validateProperty = ({ name, value }) => {
+    const obj = { [name] : value };
+    const schemas = { [name] : schema[name]};
+    const { error } = Joi.validate(obj, schemas);
+    return error ? error.details[0].message : null;
+    
+   };
+
   const handleChange = ({ currentTarget: input }) => {
+
+    const errorMsg = { ...errors };
+     const errorMessage = validateProperty(input);
+     if (errorMessage) errorMsg[input.name] = errorMessage;
+     else delete errorMsg[input.name];
+
     const data = { ...userData };
     data[input.name] = input.value;
     setUserData(data);
   };
 
-  const handleDelete = async (userId) => {
-    await deleteUser(userId);
-    let newUser = users.filter((item) => {
-      return item.id !== userId;
-    });
-    setUsers(newUser);
-  };
 
   return (
     <>
@@ -89,6 +100,7 @@ const CreateUser = () => {
                   onChange={handleChange}
                   placeholder="enter name"
                 />
+                <span style={{color : "red"}}>{errors.errors && errors.errors.name}</span>
               </div>
               <div className="mb-3">
                 <label
@@ -105,6 +117,7 @@ const CreateUser = () => {
                   onChange={handleChange}
                   placeholder="Enter Email Address...."
                 />
+                <span style={{color : "red"}}>{errors.errors && errors.errors.email}</span>
               </div>
               <div className="mb-3">
                 <label htmlFor="phone" className="form-label">
@@ -118,6 +131,7 @@ const CreateUser = () => {
                   onChange={handleChange}
                   placeholder="Enter Phone Number...."
                 />
+                <span style={{color : "red"}}>{errors.errors && errors.errors.phone}</span>
               </div>
               <Button type="submit" variant="secondary">
                 Save
@@ -130,7 +144,7 @@ const CreateUser = () => {
             </Button>
           </Modal.Footer>
         </Modal>
-        <ViewUser users={users} handleDelete={handleDelete} />
+        <ViewUser />
       </div>
     </>
   );
